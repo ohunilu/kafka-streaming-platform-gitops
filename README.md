@@ -1,5 +1,17 @@
 # kafka-streaming-platform-gitops
-Build a local Kubernetes-based GitOps platform that automatically deploys and updates Kafka streaming applications connected to Confluent Cloud.
+Building a production-oriented, reproducible streaming platform using Infrastructure as Code, GitOps, secrets management, least-privilege identities, observability, and application delivery.
+
+The Project extends the workflow of the https://developer.confluent.io/courses/data-streaming-systems/create-an-application-delivery-pipeline-with-gitops-exercise/ by Confluent. Improved it to be more closer to mimicking using GITOPS to actually setup and monitor Kafka operations using Confluent Cloud.
+
+This implementation extands the workflow by introducing:
+
+- Terraform-managed Confluent Cloud infrastructure
+- separate Terraform and application service accounts
+- least-privilege Kafka ACLs
+- SOPS + Age encrypted Kubernetes Secrets
+- Flux-managed secret reconciliation
+- reproducible secret-generation automation
+- Prometheus/Grafana/Alertmanager observability
 
 ## Phase 1 - Provisioning
 
@@ -146,22 +158,89 @@ You should get a "Success! The configuration is valid." message after validating
 ```bash
 terraform plan
 ```
-The Plan command should output:
+Review the plan, then run:
+```bash
+terraform apply
+```
+Once the Infrastructure has been provisioned, then move to Phase 3.
 
-Terraform used the selected providers to generate the following execution plan. Resource actions are indicated with
-the following symbols:
-  + create
+## Phase 3 - Gitops Platform
 
-Terraform will perform the following actions:
+### 1. Install Age
 
-  # confluent_environment.staging will be created
-  + resource "confluent_environment" "staging" {
-      + display_name  = "kafka-streaming-platform-staging"
-      + id            = (known after apply)
-      + resource_name = (known after apply)
+Install Age
+```bash
+sudo apt update
+sudo apt install -y age
+```
+### 2. Install SOPS
 
-      + stream_governance (known after apply)
-    }
+Download SOPS binary
+```bash
+curl -L \
+  -o /tmp/sops \
+  "https://github.com/getsops/sops/releases/download/v3.13.3/sops-v3.13.3.linux.amd64"
+```
+Make it executable and move it to /usr/local/bin:
+```bash
+chmod +x /tmp/sops
+sudo mv /tmp/sops /usr/local/bin/sops
+```
+### 3. Generate the Age Encryption Key
 
-Plan: 1 to add, 0 to change, 0 to destroy.
+Create a directory in the root to store the Encrption Key
+```bash
+mkdir -p ~/.config/sops/age
+chmod 700 ~/.config/sops/age
+```
+Generate the encryption key
+```bash
+age-keygen -o ~/.config/sops/age/keys.txt
+```
+Retrieve the public key only
+```bash
+age-keygen -y ~/.config/sops/age/keys.txt > clusters/staging/public.agekey
+```
+### 4. Create the Flux SOPS Secret
 
+Create a SOPS-AGE Secret in the flux-system namespace
+```bash
+kubectl create secret generic sops-age \
+  --namespace=flux-system \
+  --from-file=age.agekey=$HOME/.config/sops/age/keys.txt
+```
+
+### 5. Create the encrypted Kafka credentials
+
+Create a SOPS-AGE Secret in the flux-system namespace
+```bash
+kubectl create secret generic sops-age \
+  --namespace=flux-system \
+  --from-file=age.agekey=$HOME/.config/sops/age/keys.txt
+```
+### 6. Create the Customer-event namespace
+
+Create a customer-event namespace
+```bash
+kubectl create namespace customer-events
+```
+### 7. Create an encrypted Kafka credential
+
+First make the script executable
+```bash
+chmod +x scripts/create-orders-secret.sh
+```
+The execute the script 
+```bash
+./scripts/create-orders-secret.sh
+```
+
+### 8. Extend the generated flux bootstrap configuration with SOPS Decryption
+
+Add the following code block to clusters/staging/flux-system/gotk-sync.yaml Place it between the second resource **spec** and **sourceref**. This is to extend the generated Fluxx bootstrap configuration with SOPS decryption.
+```bash
+decryption:
+    provider: sops
+    secretRef:
+      name: sops-age
+```

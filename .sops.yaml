@@ -1,0 +1,4 @@
+creation_rules:
+  - path_regex: clusters/staging/secrets/.*\.enc\.yaml$
+    encrypted_regex: '^(data|stringData)$'
+    age: age1xyjvdqf803kve09gjwre76282sqhaggcv8ghjqpauecfaapkn4ms5svp8l
