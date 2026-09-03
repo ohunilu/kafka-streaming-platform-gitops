@@ -9,6 +9,7 @@ spec:
   chart:
     spec:
       chart: ./apps/customer-events-producer/helm/customer-events-producer
+      reconcileStrategy: Revision
       sourceRef:
         kind: GitRepository
         name: flux-system
