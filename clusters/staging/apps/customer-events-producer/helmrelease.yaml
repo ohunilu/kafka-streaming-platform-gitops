@@ -1,0 +1,26 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: customer-events-producer
+  namespace: customer-events
+spec:
+  interval: 5m
+
+  chart:
+    spec:
+      chart: ./apps/customer-events-producer/helm/customer-events-producer
+      sourceRef:
+        kind: GitRepository
+        name: flux-system
+        namespace: flux-system
+      interval: 1m
+
+  values:
+    image:
+      repository: ghcr.io/ohunilu/customer-events-producer
+      tag: "463be76"
+      pullPolicy: IfNotPresent
+
+    kafka:
+      topic: orders
+      secretName: orders-producer-credentials
