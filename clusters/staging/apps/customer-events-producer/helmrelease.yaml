@@ -18,8 +18,11 @@ spec:
   values:
     image:
       repository: ghcr.io/ohunilu/customer-events-producer
-      tag: "b921c5a"
+      tag: "dev"
       pullPolicy: IfNotPresent
+
+    imagePullSecrets:
+      - name: ghcr-pull-secret
 
     kafka:
       topic: orders
