@@ -1,0 +1,18 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: customer-events-producer
+  namespace: customer-events
+  labels:
+    app.kubernetes.io/name: customer-events-producer
+    release: kube-prometheus-stack
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: customer-events-producer
+      app.kubernetes.io/instance: customer-events-producer
+
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
