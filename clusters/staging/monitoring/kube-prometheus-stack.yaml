@@ -54,6 +54,10 @@ spec:
     alertmanager:
       enabled: true
 
+      alertmanagerSpec:
+        useExistingSecret: true
+        configSecret: alertmanager-kube-prometheus-stack-alertmanager
+
     kubeStateMetrics:
       enabled: true
 
