@@ -1,0 +1,78 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: customer-events-producer-alerts
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: customer-events-producer
+    release: kube-prometheus-stack
+spec:
+  groups:
+    - name: customer-events-producer
+      rules:
+
+        # Producer is unavailable to Prometheus.
+        - alert: ProducerDown
+          expr: up{job="customer-events-producer"} == 0
+          for: 2m
+          labels:
+            severity: critical
+            team: data-platform
+            component: customer-events-producer
+          annotations:
+            summary: "Customer events producer is down"
+            description: "The customer-events-producer Prometheus target has been unavailable for more than 2 minutes."
+
+        # Producer is experiencing persistent Kafka/event publishing failures.
+        - alert: ProducerHighFailureRate
+          expr: |
+            (
+              rate(customer_events_failed_total{job="customer-events-producer"}[5m])
+              /
+              (
+                rate(customer_events_produced_total{job="customer-events-producer"}[5m])
+                +
+                rate(customer_events_failed_total{job="customer-events-producer"}[5m])
+              )
+            ) > 0.05
+          for: 5m
+          labels:
+            severity: warning
+            team: data-platform
+            component: customer-events-producer
+          annotations:
+            summary: "Customer events producer has a high failure rate"
+            description: "More than 5% of customer events have failed to publish over the last 5 minutes."
+
+        # Producer is reachable but has stopped producing events.
+        - alert: ProducerNoEvents
+          expr: |
+            up{job="customer-events-producer"} == 1
+            and
+            rate(customer_events_produced_total{job="customer-events-producer"}[5m]) == 0
+          for: 5m
+          labels:
+            severity: warning
+            team: data-platform
+            component: customer-events-producer
+          annotations:
+            summary: "Customer events producer has stopped producing events"
+            description: "The producer is reachable but has produced no customer events for more than 5 minutes."
+
+        # Detect repeated Kubernetes container restarts.
+        - alert: ProducerRestartingFrequently
+          expr: |
+            increase(
+              kube_pod_container_status_restarts_total{
+                namespace="customer-events",
+                container="customer-events-producer"
+              }[15m]
+            ) > 3
+          for: 5m
+          labels:
+            severity: warning
+            team: data-platform
+            component: customer-events-producer
+          annotations:
+            summary: "Customer events producer is restarting frequently"
+            description: "The customer-events-producer container has restarted more than 3 times within 15 minutes."
