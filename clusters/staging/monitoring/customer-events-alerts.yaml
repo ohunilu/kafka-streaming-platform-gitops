@@ -13,7 +13,11 @@ spec:
 
         # Producer is unavailable to Prometheus.
         - alert: ProducerDown
-          expr: up{job="customer-events-producer"} == 0
+          expr: |
+            kube_deployment_status_replicas_available{
+              namespace="customer-events",
+              deployment="customer-events-producer"
+            } < 1
           for: 2m
           labels:
             severity: critical
@@ -21,7 +25,7 @@ spec:
             component: customer-events-producer
           annotations:
             summary: "Customer events producer is down"
-            description: "The customer-events-producer Prometheus target has been unavailable for more than 2 minutes."
+            description: "The customer-events-producer Deployment has no available replicas for more than 2 minutes."
 
         # Producer is experiencing persistent Kafka/event publishing failures.
         - alert: ProducerHighFailureRate
